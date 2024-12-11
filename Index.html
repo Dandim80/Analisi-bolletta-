@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisi Dettagliata Bolletta PDF</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 50px;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        input[type="file"] {
+            margin: 20px 0;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #output {
+            white-space: pre-wrap;
+            text-align: left;
+            margin-top: 30px;
+            border: 1px solid #ccc;
+            padding: 15px;
+            background: #fff;
+        }
+
+        .highlight {
+            background-color: #ffeb3b;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Analisi Dettagliata della tua Bolletta</h1>
+    <p>Carica una bolletta in formato PDF per ricevere un'analisi dettagliata.</p>
+
+    <input type="file" id="fileInput" accept=".pdf">
+    <button onclick="analyzeBill()">Analizza Bolletta</button>
+
+    <div id="output">Il risultato dell'analisi apparirà qui...</div>
+
+    <script>
+        async function analyzeBill() {
+            const fileInput = document.getElementById('fileInput');
+            const output = document.getElementById('output');
+
+            if (fileInput.files.length === 0) {
+                output.textContent = 'Per favore, carica un file PDF.';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            if (file.type !== 'application/pdf') {
+                output.textContent = 'Il file caricato non è un PDF. Carica un file PDF valido.';
+                return;
+            }
+
+            output.textContent = 'Estrazione e analisi del testo in corso...';
+
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+                const typedarray = new Uint8Array(event.target.result);
+                const pdf = await pdfjsLib.getDocument(typedarray).promise;
+
+                let fullText = '';
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const text = await page.getTextContent();
+                    fullText += text.items.map(item => item.str).join(' ') + '\n';
+                }
+
+                analyzeText(fullText);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function analyzeText(text) {
+            const output = document.getElementById('output');
+
+            // Espressioni regolari per identificare le voci principali della bolletta
+            const patterns = {
+                "Spesa per la materia energia": /spesa per la materia energia.*?(\d+,\d{2})/i,
+                "Spesa per il trasporto e gestione contatore": /spesa per il trasporto.*?(\d+,\d{2})/i,
+                "Spesa per il dispacciamento": /dispacciamento.*?(\d+,\d{2})/i,
+                "Oneri di sistema": /spesa per gli oneri di sistema.*?(\d+,\d{2})/i,
+                "Imposte": /imposte.*?(\d+,\d{2})/i,
+                "Totale bolletta": /totale bolletta.*?(\d+,\d{2})/i
+            };
+
+            let result = '';
+
+            for (const [key, regex] of Object.entries(patterns)) {
+                const match = text.match(regex);
+                if (match) {
+                    result += `<div><span class="highlight">${key}:</span> € ${match[1]}</div>\n`;
+                } else {
+                    result += `<div><span class="highlight">${key}:</span> Non trovato</div>\n`;
+                }
+            }
+
+            output.innerHTML = result || 'Nessuna informazione rilevante trovata nel PDF.';
+        }
+    </script>
+</body>
+</html>
