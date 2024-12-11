@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
@@ -46,6 +46,12 @@
         .highlight {
             background-color: #ffeb3b;
             font-weight: bold;
+        }
+
+        .details {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
         }
     </style>
 </head>
@@ -103,18 +109,43 @@
                 "Spesa per il dispacciamento": /dispacciamento.*?(\d+,\d{2})/i,
                 "Oneri di sistema": /spesa per gli oneri di sistema.*?(\d+,\d{2})/i,
                 "Imposte": /imposte.*?(\d+,\d{2})/i,
-                "Totale bolletta": /totale bolletta.*?(\d+,\d{2})/i
+                "Totale bolletta": /totale bolletta.*?(\d+,\d{2})/i,
+                "Consumo energia": /consumo.*?(\d+)\s?kWh/i,
+                "Consumo gas": /consumo.*?(\d+)\s?m³/i
             };
 
             let result = '';
+            let totalEnergyCost = 0;
+            let totalGasCost = 0;
+            let energyConsumption = 0;
+            let gasConsumption = 0;
+            let isGasBill = false;
 
             for (const [key, regex] of Object.entries(patterns)) {
                 const match = text.match(regex);
                 if (match) {
                     result += `<div><span class="highlight">${key}:</span> € ${match[1]}</div>\n`;
+
+                    // Raccogliamo i dati per i calcoli
+                    if (key === 'Spesa per la materia energia') totalEnergyCost = parseFloat(match[1].replace(',', '.'));
+                    if (key === 'Consumo energia') energyConsumption = parseInt(match[1]);
+                    if (key === 'Consumo gas') gasConsumption = parseInt(match[1]);
+                    if (key === 'Totale bolletta') totalGasCost = parseFloat(match[1].replace(',', '.'));
+                    if (key === 'Consumo gas') isGasBill = true;
                 } else {
                     result += `<div><span class="highlight">${key}:</span> Non trovato</div>\n`;
                 }
+            }
+
+            // Calcola il costo per kWh (e m³ se gas)
+            if (energyConsumption > 0 && totalEnergyCost > 0) {
+                const costPerKwh = totalEnergyCost / energyConsumption;
+                result += `<div class="details"><span class="highlight">Costo per kWh:</span> € ${costPerKwh.toFixed(4)}</div>\n`;
+            }
+
+            if (isGasBill && gasConsumption > 0 && totalGasCost > 0) {
+                const costPerM3 = totalGasCost / gasConsumption;
+                result += `<div class="details"><span class="highlight">Costo per m³:</span> € ${costPerM3.toFixed(4)}</div>\n`;
             }
 
             output.innerHTML = result || 'Nessuna informazione rilevante trovata nel PDF.';
